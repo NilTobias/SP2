@@ -10,6 +10,7 @@
 #include "Time.h"
 #include <iostream>
 #include <sstream>
+#include "collisionSphere.h"
 
 
 SceneText ::SceneText ()
@@ -40,6 +41,9 @@ void SceneText ::Init()
 	glBindVertexArray(m_vertexArrayID);
 
 	rotateCharacter = 0;
+	rotateTele = 0;
+	Teleport = false;
+	isFixed = false;
 	LSPEED = 20.f;
 	lightOn = true;
 
@@ -139,17 +143,18 @@ void SceneText ::Init()
 	meshList[GEO_MODEL1] = MeshBuilder::GenerateOBJ("model1", "OBJ//chair.obj");
 	meshList[GEO_MODEL1]->textureID = LoadTGA("Image//chair.tga");
 
-	meshList[GEO_MODEL2] = MeshBuilder::GenerateOBJ("model1", "OBJ//dart.obj");
-	meshList[GEO_MODEL2]->textureID = LoadTGA("Image//dart.tga");
-
-	meshList[GEO_MODEL3] = MeshBuilder::GenerateOBJ("model1", "OBJ//frommaya.obj");
-	meshList[GEO_MODEL3]->textureID = LoadTGA("Image//frommaya.tga");
-
 	meshList[GEO_MODEL4] = MeshBuilder::GenerateOBJ("model1", "OBJ//doorman.obj");
 	meshList[GEO_MODEL4]->textureID = LoadTGA("Image//doorman.tga");
+	cV[GEO_MODEL4] = new collisionSphere(2.f);
+	Player = ((collisionSphere*)(cV[GEO_MODEL4]));
+	Player->setVelocity(5);
+	Player->setCOORD(0,0,0);
 
-	meshList[GEO_MODEL5] = MeshBuilder::GenerateOBJ("model1", "OBJ//shoe.obj");
-	meshList[GEO_MODEL5]->textureID = LoadTGA("Image//shoe.tga");
+	meshList[TELEPORTER] = MeshBuilder::GenerateOBJ("elevator", "OBJ//Elevator.obj");
+	meshList[TELEPORTER]->textureID = LoadTGA("Image//Elevator.tga");
+	cV[TELEPORTER] = new collisionSphere(2.f);
+	Teleporter = ((collisionSphere*)cV[TELEPORTER]);
+	Teleporter->setCOORD(10,0,0);
 
 	meshList[GEO_MODEL6] = MeshBuilder::GenerateOBJ("model1", "OBJ//winebottle.obj");
 	meshList[GEO_MODEL6]->textureID = LoadTGA("Image//winebottle.tga");
@@ -216,48 +221,67 @@ void SceneText ::Update(double dt)
 	}
 
 
-
+	if (!isFixed)
+	{
 	if (Application::IsKeyPressed('W'))
 	{
 		Vector3 charMov;
 		Mtx44 charRotate;
 
-		charMov.Set(5*dt, 0, 0);
+		charMov.Set(Player->getVelocity()*dt, 0, 0);
 		charRotate.SetToRotation(rotateCharacter, 0, 1, 0);
 		charMov = charRotate * charMov;
-		charPos += charMov;
+		Player->setCentre(Player->getCentre() + charMov);
 	}
 	if (Application::IsKeyPressed('S'))
 	{
 		Vector3 charMov;
 		Mtx44 charRotate;
 
-		charMov.Set(5*dt, 0, 0);
+		charMov.Set(Player->getVelocity()*dt, 0, 0);
 		charRotate.SetToRotation(rotateCharacter, 0, 1, 0);
 		charMov = charRotate * charMov;
-		charPos -= charMov;
+		Player->setCentre(Player->getCentre() - charMov);
 	}
 	if (Application::IsKeyPressed('A'))
 	{
 		Vector3 charMov;
 		Mtx44 charRotate;
 
-		charMov.Set(0, 0, 5*dt);
+		charMov.Set(0, 0, Player->getVelocity()*dt);
 		charRotate.SetToRotation(rotateCharacter, 0, 1, 0);
 		charMov = charRotate * charMov;
-		charPos -= charMov;
+		Player->setCentre(Player->getCentre() - charMov);
 	}
 	if (Application::IsKeyPressed('D'))
 	{
 		Vector3 charMov;
 		Mtx44 charRotate;
 
-		charMov.Set(0, 0, 5*dt);
+		charMov.Set(0, 0, Player->getVelocity()*dt);
 		charRotate.SetToRotation(rotateCharacter, 0, 1, 0);
 		charMov = charRotate * charMov;
-		charPos += charMov;
+		Player->setCentre(Player->getCentre() + charMov);
 
 	}
+	}
+
+	if (Application::IsKeyPressed('E') && Player->checkCollision(Teleporter))
+	{
+		Teleport = true;
+		isFixed = true;
+	}
+	if (Teleport)
+		rotateTele += 15;
+	if (rotateTele > 1080)
+	{
+		Teleport = false;
+		isFixed = false;
+		rotateTele = 0;
+		Player->setCOORD(0,0,0);
+	}
+
+
 	if (Application::IsKeyPressed(VK_RIGHT))
 		rotateCharacter -= 5.f;
 	else if (Application::IsKeyPressed(VK_LEFT))
@@ -336,7 +360,7 @@ void SceneText::RenderText(Mesh* mesh, std::string text, Color color)
 	glEnable(GL_DEPTH_TEST);
 }
 
-void SceneText::RenderTextOnScreen(Mesh* mesh, std::string text, Color color, float size, float x, float y)
+void SceneText::RenderTextOnScreen(Mesh* mesh, std::string text,Color color,  float size, float x, float y)
 {
 	if(!mesh || mesh->textureID <= 0) //Proper error check
 		return;
@@ -355,21 +379,12 @@ void SceneText::RenderTextOnScreen(Mesh* mesh, std::string text, Color color, fl
 	modelStack.Translate(x, y, 0);
 
 	glUniform1i(m_parameters[U_TEXT_ENABLED], 1);
-	glUniform3fv(m_parameters[U_TEXT_COLOR], 1, &color.r);
 	glUniform1i(m_parameters[U_LIGHTENABLED], 0);
 	glUniform1i(m_parameters[U_COLOR_TEXTURE_ENABLED], 1);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, mesh->textureID);
-	glUniform1i(m_parameters[U_COLOR_TEXTURE], 0);
-	for(unsigned i = 0; i < text.length(); ++i)
-	{
-		Mtx44 characterSpacing;
-		characterSpacing.SetToTranslation(i * 0.5f, 0, 0); //1.0f is the spacing of each character, you may change this value
-		Mtx44 MVP = projectionStack.Top() * viewStack.Top() * modelStack.Top() * characterSpacing;
-		glUniformMatrix4fv(m_parameters[U_MVP], 1, GL_FALSE, &MVP.a[0]);
-	
-		mesh->Render((unsigned)text[i] * 6, 6);
-	}
+	glUniform1i(m_parameters[U_COLOR_TEXTURE], 0);	
+		mesh->Render();
 	glBindTexture(GL_TEXTURE_2D, 0);
 	glUniform1i(m_parameters[U_TEXT_ENABLED], 0);
 
@@ -378,6 +393,11 @@ void SceneText::RenderTextOnScreen(Mesh* mesh, std::string text, Color color, fl
 	modelStack.PopMatrix();
 
 	glEnable(GL_DEPTH_TEST);
+}
+
+void SceneText::RenderImageOnScreen(Mesh* mesh, float size, float x, float y)
+{
+
 }
 
 void SceneText ::RenderSkybox()
@@ -494,7 +514,6 @@ void SceneText ::Render()
 	glUniform3fv(m_parameters[U_LIGHT0_POSITION], 1, &lightPosition_cameraspace.x);
 
 	RenderMesh(meshList[GEO_AXES], false);
-	//RenderMesh(meshList[GEO_TEST], false);
 
 	modelStack.PushMatrix();
 	modelStack.Translate(lights[0].position.x, lights[0].position.y, lights[0].position.z);
@@ -507,9 +526,17 @@ void SceneText ::Render()
 	modelStack.PopMatrix();
 
 	modelStack.PushMatrix();
-	modelStack.Translate(charPos.x,charPos.y,charPos.z);
+	modelStack.Translate(Player->getCOORD(0), Player->getCOORD(1), Player->getCOORD(2));
 	modelStack.Rotate(rotateCharacter + 90, 0, 1, 0);
 	RenderMesh(meshList[GEO_MODEL4], false);
+	modelStack.PopMatrix();
+
+	modelStack.PushMatrix();
+	modelStack.Translate(Teleporter->getCOORD(0),
+						 Teleporter->getCOORD(1), 
+						 Teleporter->getCOORD(2));
+	modelStack.Rotate(60 + rotateTele,0,1,0);
+	RenderMesh(meshList[TELEPORTER], false);
 	modelStack.PopMatrix();
 }
 

@@ -8,6 +8,8 @@
 #include "Light.h"
 #include "Utility.h"
 #include "Application.h"
+#include "collisionSphere.h"
+#include "collisionVolume.h"
 
 class SceneText  : public Scene
 {
@@ -56,11 +58,9 @@ class SceneText  : public Scene
 		GEO_BACK,
 		GEO_NOOB,
 		GEO_MODEL1,
-		GEO_MODEL2,
-		GEO_MODEL3,
 		GEO_MODEL4,
-		GEO_MODEL5,
 		GEO_MODEL6,
+		TELEPORTER,
 		GEO_TEXT,
 		NUM_GEOMETRY,
 	};
@@ -77,19 +77,24 @@ private:
 	void RenderMesh(Mesh *mesh, bool enableLight);
 	void RenderText(Mesh* mesh, std::string text, Color color);
 	void RenderTextOnScreen(Mesh* mesh, std::string text, Color color, float size, float x, float y);
+	void RenderImageOnScreen(Mesh* mesh, float size, float x, float y);
 	void RenderSkybox();
 
 
 	unsigned m_vertexArrayID;
 	Mesh* meshList[NUM_GEOMETRY];
+	collisionVolume* cV[NUM_GEOMETRY];
+	collisionSphere *Player, *Teleporter;
 
 	unsigned m_programID;
 	unsigned m_parameters[U_TOTAL];
 
 	float LSPEED;
-	float rotateCharacter;
+	float rotateCharacter, rotateTele;
 	Vector3 charPos;
 	bool lightOn;
+	bool Teleport;
+	bool isFixed;
 
 	Camera2 camera;
 	Light lights[1];
